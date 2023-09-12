@@ -1,87 +1,136 @@
 import "../style.css";
 
-// Array to store our todos
-const todos = [
-  { id: 1, text: "Buy milk", completed: false },
-  { id: 2, text: "Buy bread", completed: false },
-  { id: 3, text: "Buy jam", completed: true },
-];
-let nextTodoId = 4;
-let filter = "all"; // Initial filter setting
+// Factory function
+function createTodoApp() {
+  // Array to store our todos
+  let todos = [];
+  let nextTodoId = 1;
+  let filter = "all"; // Initial filter setting
+
+  function addTodo(text) {
+    todos = [...todos, { 
+      id: nextTodoId++, 
+      text, // was "text: text, " but can be shortened
+      completed: false 
+    }];
+  }
+
+  // Assumption that each todo text is unique
+  function toggleCompleted(text) {
+    // map() does not modify the array, just returns a new array (typical fxnal programming style)
+
+    // todos = todos.map((todo) => {
+      // if (todo.text === text) {
+      //   return {
+      //     id: todo.id,
+      //     text: todo.text,
+      //     completed: !todo.completed
+      //   }
+      // } else {
+      //   return todo;
+      // }
+    // });
+    todos = todos.map((todo) =>
+      todo.text === text
+        ? {
+            ...todo,
+            completed: !todo.completed,
+          }
+        : todo,
+    );
+  }
+
+  function getVisibleTodos() {
+    // Filter todos based on the current filter setting
+    if (filter === 'active') {
+      return todos.filter( (todo) => !todo.completed )
+    } else if (filter === 'completed') {
+      return todos.filter( (todo) => todo.completed )
+    } else {
+      return todos;
+    }
+  }
+
+  function setFilter(newFilter) {
+    filter = newFilter;
+  }
+
+  // Returns an object that includes the functions inside createTodoApp()
+  return {
+    addTodo,
+    toggleCompleted,
+    getVisibleTodos,
+    setFilter
+  }
+}
+
+const todoApp = createTodoApp();
 
 // Function to render the todos based on the current filter
 function renderTodos() {
   const todoListElement = document.getElementById('todo-list');
   todoListElement.innerHTML = ''; // Clear the current list to avoid duplicates
 
-  let filteredTodos = [];
-  // Filter todos based on the current filter setting
-  for (let i = 0; i < todos.length; i++) {
-    if (filter === 'all') {
-      filteredTodos.push(todos[i]);
-    } else if (filter === 'active' && !todos[i].completed) {
-      filteredTodos.push(todos[i]);
-    } else if (filter === 'completed' && todos[i].completed) {
-      filteredTodos.push(todos[i]);
-    }
-  }
+  // filter is a higher order function
+  // If we're just reutrning one line, no need for curly brackets or return keyword
+  // filteredTodos = todos.filter((todo) => todo.completed);
+  const filteredTodos = todoApp.getVisibleTodos();
 
-  // Loop through the filtered todos and add them to the DOM
-  for (let i = 0; i < filteredTodos.length; i++) {
+  // Go through the filtered todos and add them to the DOM
+  filteredTodos.forEach((todo) => {
     const todoItem = document.createElement('div');
     todoItem.classList.add('p-4', 'todo-item');
 
     const todoText = document.createElement('div');
     todoText.classList.add('todo-text');
-    todoText.textContent = filteredTodos[i].text;
-    if (filteredTodos[i].completed) {
+    // was assigned to filteredTodos[i].text when it was a for-loop
+    todoText.textContent = todo.text;
+    if (todo.completed) {
       todoText.style.textDecoration = 'line-through';
     }
 
     const todoEdit = document.createElement('input');
     todoEdit.classList.add('hidden', 'todo-edit');
-    todoEdit.value = filteredTodos[i].text;
+    // was assigned to filteredTodos[i].text when it was a for-loop
+    todoEdit.value = todo.text;
 
     todoItem.appendChild(todoText);
     todoItem.appendChild(todoEdit);
     todoListElement.appendChild(todoItem);
-  }
+  });
 }
+
+// This function is replaced by the anonymous arrow function by filteredTodos.forEach() above
+// function doSomethingForEachTodo() {}
 
 // Function to handle adding a new todo
-function handleNewTodoKeyDown(event) {
+document.getElementById('new-todo').addEventListener('keydown', (event) => {
   // Check if the pressed key is 'Enter' and the input is not empty
   if (event.key === 'Enter' && event.target.value.trim() !== '') {
-    // Add the new todo to the todos array
-    todos.push({ id: nextTodoId++, text: this.value, completed: false });
-
-    // Using "this" is not recommended
-    this.value = ''; // Clear the input field
-
-    renderTodos();   // Re-render the todos
+    // Add the new todo to the todos array, clear input field, then rerender todos
+    const text = event.target.value.trim();
+    todoApp.addTodo(text) // was todos.push({ id: nextTodoId++, text: event.target.value, completed: false });
+    event.target.value = '';
+    renderTodos(); 
   }
-}
-
-const newTodoElement = document.getElementById('new-todo');
-newTodoElement.addEventListener('keydown', handleNewTodoKeyDown);
+});
 
 // Function to handle marking a todo as completed
-function handleTodoClick(event) {
+document.getElementById('todo-list').addEventListener('click', (event) => {
   // Check if the clicked element has the class 'todo-text'
   if (event.target.classList.contains('todo-text')) {
     // Find the clicked todo in the todos array and toggle its completed status
-    for (let i = 0; i < todos.length; i++) {
-      if (todos[i].text === event.target.textContent) {
-        todos[i].completed = !todos[i].completed;
-        break;
-      }
-    }
+    // for (let i = 0; i < todos.length; i++) {
+    //   if (todos[i].text === event.target.textContent) {
+    //     todos[i].completed = !todos[i].completed;
+    //     break;
+    //   }
+    // }
+    const text = event.target.value;
+    todoApp.toggleCompleted(text);
     renderTodos(); // Re-render the todos
   }
-}
-
-const todoListElement = document.getElementById('todo-list');
-todoListElement.addEventListener('click', handleTodoClick);
+});
 
 // click on any of the links (all active completed)
 document.getElementById('todo-nav').addEventListener('click', (event) => {
@@ -93,12 +142,13 @@ document.getElementById('todo-nav').addEventListener('click', (event) => {
     // Extract the filter value from the href attribute
     // .slice(2) means to dump the /#/ and get the value after
     const hrefValue = event.target.getAttribute('href').slice(2);
-    filter = hrefValue === '' ? 'all' : hrefValue;
+    const newFilter = hrefValue === '' ? 'all' : hrefValue;
+    todoApp.setFilter(newFilter);
     renderTodos(); // Re-render the todos based on the new filter
   }
 });
 
-// // Function to handle changing the filter
+// // Function to handle changing the filter REPLACED WITH ARROW FXN ABOVE
 // function handleFilterClick(event) {
 //   // Check if the clicked element is an anchor tag ('A' for a link)
 //   if (event.target.tagName === 'A') {
